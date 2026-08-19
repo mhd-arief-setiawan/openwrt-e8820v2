@@ -8,6 +8,11 @@
 	compatible = "zte,e8820v2", "mediatek,mt7621-soc";
 	model = "ZTE E8820V2";
 
+	chosen {
+		/* MT7603E link dies via ASPM during the driverless boot window */
+		bootargs = "console=ttyS0,115200 pcie_aspm=off";
+	};
+
 	aliases {
 		led-boot = &led_sys;
 		led-failsafe = &led_sys;
