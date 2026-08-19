@@ -24,16 +24,18 @@ CC='ID'
 uci -q delete network.lan
 uci set network.@device[0].vlan_filtering='1'
 
+# Port layout: LAN1+LAN2 = trunks (all VLANs tagged); LAN3 = Servers access
+# (untagged 40); LAN4 = Trusted access (untagged 10).
 uci -q delete network.v1;  uci set network.v1=bridge-vlan;  uci set network.v1.device='br-lan';  uci set network.v1.vlan='1'
-uci add_list network.v1.ports='lan2:u*'; uci add_list network.v1.ports='lan4:u*'
+uci add_list network.v1.ports='lan1:t'; uci add_list network.v1.ports='lan2:t'
 uci -q delete network.v10; uci set network.v10=bridge-vlan; uci set network.v10.device='br-lan'; uci set network.v10.vlan='10'
-uci add_list network.v10.ports='lan3:u*'; uci add_list network.v10.ports='lan2:t'; uci add_list network.v10.ports='lan4:t'
+uci add_list network.v10.ports='lan4:u*'; uci add_list network.v10.ports='lan1:t'; uci add_list network.v10.ports='lan2:t'
 uci -q delete network.v20; uci set network.v20=bridge-vlan; uci set network.v20.device='br-lan'; uci set network.v20.vlan='20'
-uci add_list network.v20.ports='lan2:t'; uci add_list network.v20.ports='lan4:t'
+uci add_list network.v20.ports='lan1:t'; uci add_list network.v20.ports='lan2:t'
 uci -q delete network.v30; uci set network.v30=bridge-vlan; uci set network.v30.device='br-lan'; uci set network.v30.vlan='30'
-uci add_list network.v30.ports='lan2:t'; uci add_list network.v30.ports='lan4:t'
+uci add_list network.v30.ports='lan1:t'; uci add_list network.v30.ports='lan2:t'
 uci -q delete network.v40; uci set network.v40=bridge-vlan; uci set network.v40.device='br-lan'; uci set network.v40.vlan='40'
-uci add_list network.v40.ports='lan1:u*'; uci add_list network.v40.ports='lan2:t'; uci add_list network.v40.ports='lan4:t'
+uci add_list network.v40.ports='lan3:u*'; uci add_list network.v40.ports='lan1:t'; uci add_list network.v40.ports='lan2:t'
 
 uci set network.mgmt=interface;    uci set network.mgmt.device='br-lan.1';    uci set network.mgmt.proto='static';    uci set network.mgmt.ipaddr='10.0.1.1';    uci set network.mgmt.netmask='255.255.255.0'
 uci set network.trusted=interface; uci set network.trusted.device='br-lan.10'; uci set network.trusted.proto='static'; uci set network.trusted.ipaddr='10.0.10.1'; uci set network.trusted.netmask='255.255.255.0'
@@ -93,6 +95,15 @@ uci set wireless.wlan_trusted.network='trusted'
 uci set wireless.wlan_trusted.ssid='Alfarel-Home'
 uci set wireless.wlan_trusted.encryption='psk2'
 uci set wireless.wlan_trusted.key="$WKEY"
+# Guest AP -> Guest VLAN, client-isolated (2 BSS is the practical max on 64MB)
+uci set wireless.wlan_guest=wifi-iface
+uci set wireless.wlan_guest.device='radio0'
+uci set wireless.wlan_guest.mode='ap'
+uci set wireless.wlan_guest.network='guest'
+uci set wireless.wlan_guest.ssid='Alfarel-Home-Guest'
+uci set wireless.wlan_guest.encryption='psk2'
+uci set wireless.wlan_guest.key="$WKEY"
+uci set wireless.wlan_guest.isolate='1'
 
 uci commit
 
