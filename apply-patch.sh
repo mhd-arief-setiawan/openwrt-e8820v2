@@ -30,6 +30,15 @@ open(path, "w").write("".join(lines))
 print("01_leds patched")
 EOF
 
+# 4. Boot-time 2.4GHz (MT7603E) recovery, baked into the image rootfs.
+#    The MT7603E fails its PCIe ROM handshake on cold boot; this rc.local
+#    re-binds the MT7621 PCIe controller once to recover it. It is self-gating
+#    (acts only when mt7603e failed), so it is harmless on other boards.
+mkdir -p "$OPENWRT_DIR/files/etc"
+cp "$SCRIPT_DIR/files/rc.local" "$OPENWRT_DIR/files/etc/rc.local"
+chmod +x "$OPENWRT_DIR/files/etc/rc.local"
+
 grep -q "zte_e8820v2" "$OPENWRT_DIR/target/linux/ramips/image/mt7621.mk"
 grep -q "zte,e8820v2" "$OPENWRT_DIR/target/linux/ramips/mt7621/base-files/etc/board.d/01_leds"
+test -x "$OPENWRT_DIR/files/etc/rc.local"
 echo "E8820V2 patch applied OK"
