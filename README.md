@@ -20,22 +20,24 @@ Includes LuCI web interface and zram-swap (helpful on 64MB RAM).
 
 ## Hardware notes / quirks
 
-- **2.4GHz (MT7603E) cold-boot fix.** On this board the MT7603E fails its PCIe
-  ROM handshake on a cold boot (`mt7603e: Timeout waiting for ROM code`), so the
-  2.4GHz radio is missing after boot. A baked-in `/etc/rc.local` (see
-  `files/rc.local`) re-binds the MT7621 PCIe host controller once at the end of
-  boot, which recovers the radio; it then drops the stale pre-rebind PCI devices
-  to reclaim RAM. The script is self-gating (runs only if the MT7603E failed) and
-  backgrounded so it can never block boot. `pcie_aspm=off` is also set on the
-  kernel command line via the DTS `chosen` node (necessary but not sufficient on
-  its own).
-- After the re-bind, both radios live in PCI domain `0001`. On a brand-new flash
-  the firstboot-generated `/etc/config/wireless` may list only the 5GHz radio
-  (the 2.4GHz PHY appears a few seconds later); if so, add/enable the 2.4GHz
-  radio once in LuCI (Network → Wireless) — its path is
-  `1e140000.pcie/pci0001:00/0001:00:00.0/0001:01:00.0`.
-- **64MB RAM is tight** for 24.10 with two radios; zram-swap is included. Steady
-  state is stable (idle load < 1), but avoid installing many heavy packages.
+- **Wi-Fi is disabled on the router — run it on separate APs.** This board has
+  only 64MB RAM. Running the full VLAN + firewall + dnsmasq stack already uses
+  ~38MB; adding the MT76 radios pushes it into OOM and, critically, an endless
+  `ieee80211 phyN: Hardware restart was requested` loop on the MT7612 (5GHz) —
+  the radio resets ~once per second and is unusable. Both `mt7603e` (2.4GHz) and
+  `mt7612e` (5GHz) also have flaky PCIe ROM handshakes on cold boot
+  (`Timeout waiting for ROM code`). The reliable architecture is to use this
+  device purely as a router/firewall/VLAN gateway and let dedicated access points
+  (with their own RAM) serve all SSIDs, tagged onto the VLANs over a trunk port.
+  Both radios are therefore left `disabled` in `/etc/config/wireless` and
+  `/etc/rc.local` is a no-op.
+- `pcie_aspm=off` is set on the kernel command line via the DTS `chosen` node
+  (kept from debugging the radio bring-up; harmless and left in place).
+- **IPv6 is disabled** (`network.wan6` removed, `odhcpd` stopped) to reclaim RAM;
+  re-enable if you have native IPv6 and spare memory.
+- If you ever want to experiment with radios on the router anyway, expect
+  instability; keep it to a single AP at HT20/VHT40 and watch `logread` for
+  "Hardware restart".
 
 ## Flashing onto a memory-constrained unit
 
