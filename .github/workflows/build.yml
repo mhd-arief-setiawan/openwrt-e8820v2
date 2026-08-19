@@ -26,8 +26,8 @@ jobs:
             gcc-multilib g++-multilib gettext git libncurses-dev libssl-dev \
             python3-setuptools rsync swig unzip zlib1g-dev file wget
 
-      - name: Clone OpenWrt v24.10.8
-        run: git clone --depth 1 --branch v24.10.8 https://github.com/openwrt/openwrt.git openwrt
+      - name: Clone OpenWrt v23.05.6
+        run: git clone --depth 1 --branch v23.05.6 https://github.com/openwrt/openwrt.git openwrt
 
       - name: Apply E8820V2 device patch
         run: |
@@ -40,9 +40,18 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
+      - name: Cache ccache (speeds up re-runs)
+        uses: actions/cache@v4
+        with:
+          path: openwrt/.ccache
+          key: ccache-2305-${{ hashFiles('config.seed') }}
+          restore-keys: |
+            ccache-2305-
+
       - name: Configure
         run: |
           cp config.seed openwrt/.config
+          echo 'CONFIG_CCACHE=y' >> openwrt/.config
           cd openwrt
           make defconfig
           grep CONFIG_TARGET_ramips_mt7621_DEVICE_zte_e8820v2=y .config
@@ -61,7 +70,7 @@ jobs:
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
-          name: openwrt-24.10.8-zte-e8820v2
+          name: openwrt-23.05.6-zte-e8820v2-5g
           path: |
             openwrt/bin/targets/ramips/mt7621/*.bin
             openwrt/bin/targets/ramips/mt7621/*.manifest

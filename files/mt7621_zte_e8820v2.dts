@@ -2,14 +2,12 @@
 
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
-#include <dt-bindings/leds/common.h>
 
 / {
 	compatible = "zte,e8820v2", "mediatek,mt7621-soc";
 	model = "ZTE E8820V2";
 
 	chosen {
-		/* MT7603E link dies via ASPM during the driverless boot window */
 		bootargs = "console=ttyS0,115200 pcie_aspm=off";
 	};
 
@@ -59,7 +57,6 @@
 		compatible = "jedec,spi-nor";
 		reg = <0>;
 		spi-max-frequency = <10000000>;
-		broken-flash-reset;
 
 		partitions {
 			compatible = "fixed-partitions";
@@ -78,36 +75,10 @@
 				read-only;
 			};
 
-			partition@40000 {
+			factory: partition@40000 {
 				label = "factory";
 				reg = <0x40000 0x10000>;
 				read-only;
-
-				nvmem-layout {
-					compatible = "fixed-layout";
-					#address-cells = <1>;
-					#size-cells = <1>;
-					
-					eeprom_factory_0: eeprom@0 {
-						reg = <0x0 0x400>;
-					};
-
-					eeprom_factory_8000: eeprom@8000 {
-						reg = <0x8000 0x200>;
-					};
-
-					macaddr_factory_4: macaddr@4 {
-						reg = <0x4 0x6>;
-					};
-
-					macaddr_factory_e000: macaddr@e000 {
-						reg = <0xe000 0x6>;
-					};
-
-					macaddr_factory_e006: macaddr@e006 {
-						reg = <0xe006 0x6>;
-					};
-				};
 			};
 
 			partition@50000 {
@@ -121,44 +92,26 @@
 
 &pcie {
 	status = "okay";
-	reset-gpios = <&gpio 19 GPIO_ACTIVE_LOW>,
-				  <&gpio 4 GPIO_ACTIVE_LOW>;
 };
 
 &pcie0 {
 	wifi@0,0 {
 		reg = <0x0000 0 0 0 0>;
-		nvmem-cells = <&eeprom_factory_0>, <&macaddr_factory_e000>;
-		nvmem-cell-names = "eeprom", "mac-address";
-
-		led {
-			led-active-low;
-		};
+		mediatek,mtd-eeprom = <&factory 0x0>;
 	};
 };
 
 &pcie1 {
 	wifi@0,0 {
 		reg = <0x0000 0 0 0 0>;
-		nvmem-cells = <&eeprom_factory_8000>, <&macaddr_factory_e006>;
-		nvmem-cell-names = "eeprom", "mac-address";
-
+		mediatek,mtd-eeprom = <&factory 0x8000>;
 		ieee80211-freq-limit = <5000000 6000000>;
-		led {
-			led-sources = <2>;
-			led-active-low;
-		};
 	};
 };
-
 
 &gmac0 {
 	nvmem-cells = <&macaddr_factory_e000>;
 	nvmem-cell-names = "mac-address";
-};
-
-&ethphy0 {
-	/delete-property/ interrupts;
 };
 
 &switch0 {
@@ -189,6 +142,20 @@
 			nvmem-cells = <&macaddr_factory_e006>;
 			nvmem-cell-names = "mac-address";
 		};
+	};
+};
+
+&factory {
+	compatible = "nvmem-cells";
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	macaddr_factory_e000: macaddr@e000 {
+		reg = <0xe000 0x6>;
+	};
+
+	macaddr_factory_e006: macaddr@e006 {
+		reg = <0xe006 0x6>;
 	};
 };
 

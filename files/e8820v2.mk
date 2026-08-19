@@ -5,7 +5,7 @@ define Device/zte_e8820v2
   IMAGE_SIZE := 16064k
   DEVICE_VENDOR := ZTE
   DEVICE_MODEL := E8820V2
-  DEVICE_PACKAGES := kmod-mt7603 kmod-mt76x2 kmod-usb2 \
-	  kmod-usb-ledtrig-usbport
+  # 5GHz-only (mt7612) to save RAM on the 64MB board; mt7603 (2.4GHz) omitted.
+  DEVICE_PACKAGES := kmod-mt76x2
 endef
 TARGET_DEVICES += zte_e8820v2
