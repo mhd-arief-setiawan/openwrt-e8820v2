@@ -8,151 +8,104 @@ non-obvious constraints will bite you otherwise. Last verified: 2026-08-20.
 ## 1. What this device is
 
 - **ZTE E8820V2**: MT7621A SoC, **16 MB SPI-NOR flash, 64 MB RAM**, 5× gigabit
-  ports (MT7621 DSA switch), MT7603E (2.4 GHz) + **MT7612E (5 GHz)** radios.
-- Running a **custom OpenWrt 23.05.6, 5 GHz-only** build (kmod-mt7603 omitted).
-  Source/build: GitHub `mhd-arief-setiawan/openwrt-e8820v2`, local mirror
-  `d:\Projects\openwrt-router\build-repo`.
-- **Breed bootloader is present** → a bad flash is recoverable (hold reset at
-  power-on, browse to 192.168.1.1). Full original **Padavan** firmware + factory
-  (WiFi calibration) + bootloader backups are in `d:\Projects\openwrt-router\backups\`.
+  ports, MT7603E (2.4 GHz, **not used**) + **MT7612E (5 GHz)** radios.
+- Running custom **OpenWrt 23.05.6, 5 GHz-only** (kmod-mt7603 omitted).
+  Build/source: `mhd-arief-setiawan/openwrt-e8820v2` (local: `build-repo/`).
+- **Breed bootloader present** → bad flash recoverable (hold reset at power-on →
+  192.168.1.1). Original Padavan fw + factory + bootloader backups in
+  `../backups/`.
 
 ## 2. Access
 
 | | |
 |---|---|
 | LuCI / SSH | `root` / `@Hammadar4549` |
-| Management IP | **10.0.10.1** (Trusted VLAN) |
-| **Reliable mgmt channel** | **IPv6 link-local `fe80::7e39:55ff:fe61:1a8e%<ifindex>`** |
+| Router LAN IP | **172.30.10.1** |
+| Reliable mgmt channel | IPv6 link-local `fe80::7e39:55ff:fe61:1a8e%<ifindex>` |
 
-The router LAN MAC is `7c:39:55:61:1a:8e`, so its IPv6 link-local is always
-`fe80::7e39:55ff:fe61:1a8e`. This works **regardless of IPv4/VLAN state** and is
-the ONLY thing that stayed reliable through every reconfig — prefer it.
-On the Windows PC, find `<ifindex>` with `Get-NetAdapter -Name Ethernet` (was `15`).
-SSH auth: password `@Hammadar4549` normally; **none-auth (no password)** right
-after a factory-fresh flash.
+The router LAN MAC `7c:39:55:61:1a:8e` → link-local `fe80::7e39:55ff:fe61:1a8e`,
+stable across IP changes. On Windows the `<ifindex>` **changes** after network
+churn — always re-read it: `Get-NetAdapter -Name Ethernet`.
 
-## 3. ⚠️ Critical constraints (these caused days of pain — do not relearn them)
+## 3. ⚠️ Critical constraints (learned the hard way — do not relearn)
 
-1. **5 GHz MUST be VHT40, never VHT80/HE80/80 MHz.** At 80 MHz the mt76 driver's
-   DMA buffers exceed what 64 MB can give → endless `ieee80211 phyN: Hardware
-   restart was requested` loop (~1/sec, radio unusable). **VHT40 is stable**
-   (~200–300 Mbps). This is the single most important rule.
-2. **RAM is at the ceiling.** ~0.5–2 MB free with 5 VLANs + 2 APs (zram-swap
-   cushions it). **Two SSIDs is the practical max.** Do NOT `opkg install` heavy
-   packages — even `opkg update` can OOM. For QoS use built-in **nftables/fw4**,
-   never SQM/tc.
-3. **`setsid` does NOT exist** on this build. To detach a background job (e.g. a
-   config-apply that restarts the network and will drop your SSH), use:
-   `start-stop-daemon -S -b -x /bin/sh -- /tmp/script.sh`
-   (A plain `cmd &` over SSH gets killed when the session closes.)
-4. **Flash with mtd streaming, not sysupgrade/LuCI** (they stage the image in
-   tmpfs and OOM): `cat img.bin | ssh root@ROUTER 'mtd -r write - firmware'`.
-   To go factory-fresh, `mtd erase rootfs_data` first (or it's implicit on a
-   squashfs firmware write + reboot).
-5. **Cloudflare WARP on the PC** intermittently RESETs LAN connections and blocks
-   DHCP **even when the client shows "Disconnected"** — its filter driver stays
-   active. For reliable router access, fully **stop the CloudflareWARP service**
-   (needs admin: `Stop-Service CloudflareWARP -Force`). Symptom: TCP connects then
-   handshake resets (WinError 10053/10054), or PC stuck on 169.254.x.
-6. **L2 is hardware-offloaded** (MT7621 switch) → `bridge fdb show` is empty. To
-   find which physical port a device is on, compare `/sys/class/net/lanN/
-   statistics/rx_packets` before/after a traffic burst, not the fdb.
-7. **PCIe radio cold-boot is flaky.** The MT7612 (and MT7603) sometimes fail their
-   PCIe ROM handshake on cold boot; `/etc/rc.local` re-binds the MT7621 PCIe
-   controller when the PHY is missing and reconciles the radio→PHY mapping **by
-   driver** (the PCI path shifts between boots — never hardcode it).
+1. **5 GHz MUST be VHT40, never VHT80/80 MHz.** 80 MHz DMA buffers exceed 64 MB →
+   endless `ieee80211 phyN: Hardware restart` loop. VHT40 = stable, ~200–300 Mbps.
+2. **RAM is the hard limit.** The old 5-VLAN design left ~0.2 MB free and was
+   unstable. The current **flat single-LAN design** leaves ~0.9–1.4 MB with 2 APs.
+   Keep it flat; **2 APs is the max**; never `opkg install` heavy pkgs (even
+   `opkg update` can OOM); use **nftables** for QoS, never SQM/tc.
+3. **WARP on the management PC captures almost all private space.** The user's
+   corporate Cloudflare WARP routes **all of `10.0.0.0/8`, `172.16.0.0/12`, and
+   `100.64/10`** into the tunnel, AND blocks the PC's DHCP. Only **`192.168.0.0/16`**
+   is left alone by default. We use `172.30.x` at the user's request — it is only
+   reachable from the WARP'd PC if `172.30.0.0/16` is added to WARP's Split-Tunnel
+   **exclude** list (Cloudflare Zero Trust admin). Otherwise manage the router from
+   a non-WARP device (phone on Wi-Fi), over IPv6 link-local, or with WARP paused.
+4. **`setsid` is absent.** Detach jobs with a leading background + sleep, launched
+   from a live SSH session, e.g. `sh /tmp/x.sh >/tmp/x.log 2>&1 &` (it survives
+   long enough to commit + restart), or `start-stop-daemon -S -b -x /bin/sh -- /tmp/x.sh`.
+5. **Flash with mtd streaming**, never sysupgrade/LuCI (they OOM staging in tmpfs):
+   `cat img.bin | ssh root@ROUTER 'mtd -r write - firmware'`.
+6. **Any change that restarts networking can lock you out** — use the rollback
+   pattern (§6) and reconnect over IPv6 link-local.
+7. **L2 is hardware-offloaded** → `bridge fdb show` is empty; find a device's port
+   via `/sys/class/net/lanN/statistics/rx_packets` deltas.
+8. **5 GHz cold-boot is flaky** → `/etc/rc.local` re-binds the PCIe controller when
+   the mt76x2 PHY is missing and reconciles the radio path by driver.
 
-## 4. Current configuration
+## 4. Current configuration (flat, minimal)
 
-**Subnets** (3rd octet = VLAN ID):
-
-| Zone | VLAN | Subnet / GW | Notes |
-|---|---|---|---|
-| Management | 1 | 10.0.1.1/24 | admin |
-| Trusted | 10 | 10.0.10.1/24 | PC, main 5G SSID |
-| IoT | 20 | 10.0.20.1/24 | (no SSID yet) |
-| Guest | 30 | 10.0.30.1/24 | open SSID, 5 Mbps cap |
-| Servers | 40 | 10.0.40.1/24 | Proxmox 10.0.40.2 |
-
-**Ports** (DSA bridge-vlan on `br-lan`, sections `network.v1/v10/v20/v30/v40`):
-
-| Port | Mode | VLANs |
-|---|---|---|
-| WAN | uplink (DHCP; behind ISP modem 192.168.100.1, router got .100.3) | — |
-| LAN1, LAN2 | trunk | 1,10,20,30,40 tagged |
-| LAN3 | access | untagged 40 (Servers) — **Proxmox** |
-| LAN4 | access | untagged 10 (Trusted) — **PC** (`a8:a1:59:e7:b8:a4`) |
-
-**Firewall** (fw4/nftables): zones `trusted`,`mgmt` (input ACCEPT), `iot`,`guest`,
-`servers` (input REJECT + allow DHCP/DNS to router). Forwardings: `trusted`→
-wan,iot,servers,mgmt; `mgmt`→wan,trusted,iot,servers; `guest`→wan; `servers`→wan;
-`iot`→wan. (Guest/IoT internet-only, isolated from other internal zones.)
-
-**Wireless** (`radio0` = the only radio = mt76x2e 5 GHz; `radio0.path` is rewritten
-each boot by rc.local — don't rely on its stored value):
-- `wlan_trusted`: SSID **Alfarel-Home**, network `trusted`, WPA2 (`@Hammadar4549`).
-- `wlan_guest`: SSID **Alfarel-Home-Guest**, network `guest`, **encryption none**
-  (open), `isolate=1`.
-- Both on channel 36, **htmode VHT40**, country ID.
-
-**Guest 5 Mbps cap**: `/etc/nftables.d/20-guest-qos.nft` (repo: `files/guest-qos.nft`)
-— an fw4 include adding chain `guest_qos` with an nftables policer on `br-lan.30`
-(both directions, ~610 kbytes/s ≈ 5 Mbps, TOTAL for the guest network). Persists
-via fw4 auto-loading `/etc/nftables.d/`.
-
-**IPv6 is disabled** (`network.wan6` removed, `odhcpd` disabled) to save RAM.
+- **Network:** one flat bridge `br-lan` over **all 4 LAN ports** (no VLANs),
+  interface `lan` = **172.30.10.1/24**, DHCP .100–.249. WAN = DHCP client.
+  Plus a **wifi-only guest bridge** `br-guest`, interface `guest` =
+  **172.30.20.1/24**, DHCP.
+- **Wi-Fi** (`radio0` = mt76x2 5 GHz, ch36, **VHT40**; path rewritten each boot by
+  rc.local):
+  - `wmain`: SSID **Alfarel-Wifi**, network `lan`, WPA2 (`@Hammadar4549`).
+  - `wguest`: SSID **Alfarel-Wifi-Guest**, network `guest`, **open**, `isolate=1`.
+- **Firewall:** default `lan`(accept)+`wan`(masq); added `guest` zone
+  (input REJECT + allow DHCP/DNS, forward → wan only) so guests are internet-only,
+  isolated from LAN.
+- **Guest 5 Mbps cap:** `/etc/nftables.d/20-guest-qos.nft` — fw4 policer on
+  `br-guest`, both directions (repo: `files/guest-qos.nft`).
+- **IPv6 disabled** (`wan6` removed, `odhcpd` off) to save RAM.
+- **Proxmox** is on a LAN port → give it `172.30.10.x` (static or DHCP).
 
 ## 5. Reconfiguration recipes
 
-Connect first (from the PC, adjust ifindex): use the repo's helper pattern or any
-SSH client to `root@10.0.10.1` (pw `@Hammadar4549`) or
-`root@fe80::7e39:55ff:fe61:1a8e%<ifindex>`.
-
-- **Change a WiFi password:** `uci set wireless.wlan_trusted.key='NEWPASS';
-  uci commit wireless; wifi reload`.
-- **Add the IoT SSID** (⚠️ 3rd BSS — likely OOMs on 64 MB; test memory, be ready
-  to revert): `uci set wireless.wlan_iot=wifi-iface; uci set wireless.wlan_iot.device=radio0;
-  uci set wireless.wlan_iot.mode=ap; uci set wireless.wlan_iot.network=iot;
-  uci set wireless.wlan_iot.ssid=Alfarel-Home-IoT; uci set wireless.wlan_iot.encryption=psk2;
-  uci set wireless.wlan_iot.key=...; uci commit wireless; wifi reload` — then check
-  `logread | grep -c 'Hardware restart'` stays 0 and `dmesg | grep -ci 'out of memory'`.
-- **Change guest speed:** edit `/etc/nftables.d/20-guest-qos.nft` (5 Mbps ≈
-  610 kbytes/s; scale linearly), then `fw4 reload`.
-- **Per-device guest limit** (instead of total): replace the policer with an
-  nftables `meter` keyed on the client IP.
-- **Re-apply the whole config from scratch:** run `apply-config.sh`'s body (it's
-  the canonical VLAN+firewall+wireless setup). Reassign ports there if needed.
+- **Change a Wi-Fi password:** `uci set wireless.wmain.key='NEW'; uci commit
+  wireless; wifi reload`.
+- **Change guest speed:** edit `/etc/nftables.d/20-guest-qos.nft` (5 Mbps ≈ 610
+  kbytes/s; scale linearly) → `fw4 reload`.
+- **Rebuild everything clean:** factory reset (`firstboot -y; reboot` → 192.168.1.1,
+  WARP-safe → reliable window) then run `apply-config.sh` (the whole flat setup).
 - **Rebuild firmware:** `build.sh` locally (Ubuntu/WSL on D:, ~30–45 min) or push
-  to trigger the GitHub Actions workflow (~2 h). Keep it 5 GHz-only + the DTS in
-  `files/` (kernel-5.15 syntax: `mediatek,mtd-eeprom` + nvmem MACs).
-- **Restore Padavan** (abandon OpenWrt): `cat backups/mtd6_Firmware_Stub.bin |
-  ssh root@ROUTER 'mtd -r write - firmware'` — or via Breed. (Padavan = great WiFi
-  but NO VLAN segmentation; that's why we're on OpenWrt.)
+  → GitHub Actions (~2 h). Keep 5 GHz-only; DTS in `files/` is kernel-5.15 syntax.
+- **Restore Padavan:** `cat ../backups/mtd6_Firmware_Stub.bin | ssh root@ROUTER
+  'mtd -r write - firmware'`.
 
-## 6. Safe-change pattern for anything that restarts the network
+## 6. Safe-change pattern (network-restarting changes)
 
-Risky remote changes (network/bridge/port edits) can lock you out. Use an
-auto-rollback: back up `/etc/config`, launch a detached watchdog that reverts +
-reboots unless you confirm, then apply detached:
 ```sh
 cp -a /etc/config /etc/config.bak
 cat > /tmp/rb.sh <<'RB'
 #!/bin/sh
-sleep 300
+sleep 1200
 [ -f /tmp/ok ] && exit 0
 rm -rf /etc/config; cp -a /etc/config.bak /etc/config; sync; reboot
 RB
 chmod +x /tmp/rb.sh
-start-stop-daemon -S -b -x /bin/sh -- /tmp/rb.sh   # NOT setsid (absent)
-# ... apply uci changes; uci commit; /etc/init.d/network restart ...
+start-stop-daemon -S -b -x /bin/sh -- /tmp/rb.sh   # setsid is absent
+# ...apply uci; uci commit; /etc/init.d/network restart...
 ```
-Reconnect (IPv6 link-local!), verify, then `touch /tmp/ok` to cancel the rollback.
+Reconnect over IPv6 link-local, verify, then `touch /tmp/ok`. Use a **long window
+(20 min)** — the WARP-flaky link makes canceling slow. Note: a reboot wipes /tmp,
+which also kills the watchdog (so a clean reboot into the new config = safe).
 
 ## 7. Repo / files
 
-- `apply-config.sh` — canonical VLAN + firewall + DHCP + wireless setup.
-- `apply-patch.sh`, `config.seed`, `files/mt7621_zte_e8820v2.dts`,
-  `files/e8820v2.mk`, `files/rc.local`, `files/guest-qos.nft` — build inputs.
-- `build.sh` — standalone local build. `.github/workflows/build.yml` — cloud build.
-- Backups: `d:\Projects\openwrt-router\backups\` (Padavan fw, factory, bootloader,
-  `padavan-nvram.txt`).
+- `apply-config.sh` — the canonical flat config (LAN + isolated 5 Mbps guest + 2 APs).
+- `apply-patch.sh`, `config.seed`, `files/{mt7621_zte_e8820v2.dts, e8820v2.mk,
+  rc.local, guest-qos.nft}` — build inputs. `build.sh` / workflow — build.
+- `../backups/` — Padavan fw, factory (WiFi cal), bootloader, `padavan-nvram.txt`.

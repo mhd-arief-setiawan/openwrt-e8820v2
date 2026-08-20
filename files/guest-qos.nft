@@ -1,7 +1,7 @@
-# Guest network total bandwidth cap ~5 Mbps each direction (br-lan.30 = Guest VLAN).
-# Included by fw4 into table inet fw4. Policer (drops excess); no shaping packages needed.
+# Guest network ~5 Mbps cap each way (br-guest = the wifi-only guest bridge).
+# fw4 include (policer; no shaping packages needed on the 64MB board).
 chain guest_qos {
     type filter hook forward priority 1; policy accept;
-    oifname "br-lan.30" limit rate over 610 kbytes/second burst 128 kbytes drop comment "!fw4: guest 5Mbps down"
-    iifname "br-lan.30" limit rate over 610 kbytes/second burst 128 kbytes drop comment "!fw4: guest 5Mbps up"
+    oifname "br-guest" limit rate over 610 kbytes/second burst 128 kbytes drop comment "!fw4: guest 5Mbps down"
+    iifname "br-guest" limit rate over 610 kbytes/second burst 128 kbytes drop comment "!fw4: guest 5Mbps up"
 }
