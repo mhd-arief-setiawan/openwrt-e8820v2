@@ -2,6 +2,6 @@
 # fw4 include (policer; no shaping packages needed on the 64MB board).
 chain guest_qos {
     type filter hook forward priority 1; policy accept;
-    oifname "br-guest" limit rate over 610 kbytes/second burst 128 kbytes drop comment "!fw4: guest 5Mbps down"
-    iifname "br-guest" limit rate over 610 kbytes/second burst 128 kbytes drop comment "!fw4: guest 5Mbps up"
+    oifname "br-guest" limit rate over 366 kbytes/second burst 128 kbytes drop comment "!fw4: guest 3Mbps down"
+    iifname "br-guest" limit rate over 366 kbytes/second burst 128 kbytes drop comment "!fw4: guest 3Mbps up"
 }

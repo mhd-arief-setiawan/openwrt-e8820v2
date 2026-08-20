@@ -67,7 +67,7 @@ churn — always re-read it: `Get-NetAdapter -Name Ethernet`.
 - **Firewall:** default `lan`(accept)+`wan`(masq); added `guest` zone
   (input REJECT + allow DHCP/DNS, forward → wan only) so guests are internet-only,
   isolated from LAN.
-- **Guest 5 Mbps cap:** `/etc/nftables.d/20-guest-qos.nft` — fw4 policer on
+- **Guest 3 Mbps cap:** `/etc/nftables.d/20-guest-qos.nft` — fw4 policer on
   `br-guest`, both directions (repo: `files/guest-qos.nft`).
 - **IPv6 disabled** (`wan6` removed, `odhcpd` off) to save RAM.
 - **Proxmox** is on a LAN port → give it `172.30.10.x` (static or DHCP).
@@ -76,7 +76,7 @@ churn — always re-read it: `Get-NetAdapter -Name Ethernet`.
 
 - **Change a Wi-Fi password:** `uci set wireless.wmain.key='NEW'; uci commit
   wireless; wifi reload`.
-- **Change guest speed:** edit `/etc/nftables.d/20-guest-qos.nft` (5 Mbps ≈ 610
+- **Change guest speed:** edit `/etc/nftables.d/20-guest-qos.nft` (3 Mbps ≈ 610
   kbytes/s; scale linearly) → `fw4 reload`.
 - **Rebuild everything clean:** factory reset (`firstboot -y; reboot` → 192.168.1.1,
   WARP-safe → reliable window) then run `apply-config.sh` (the whole flat setup).
@@ -105,7 +105,7 @@ which also kills the watchdog (so a clean reboot into the new config = safe).
 
 ## 7. Repo / files
 
-- `apply-config.sh` — the canonical flat config (LAN + isolated 5 Mbps guest + 2 APs).
+- `apply-config.sh` — the canonical flat config (LAN + isolated 3 Mbps guest + 2 APs).
 - `apply-patch.sh`, `config.seed`, `files/{mt7621_zte_e8820v2.dts, e8820v2.mk,
   rc.local, guest-qos.nft}` — build inputs. `build.sh` / workflow — build.
 - `../backups/` — Padavan fw, factory (WiFi cal), bootloader, `padavan-nvram.txt`.

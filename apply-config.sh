@@ -106,13 +106,13 @@ exit 0
 RCL
 chmod +x /etc/rc.local
 
-# ---- guest 5Mbps cap (nftables policer on br-guest; no shaping packages) ----
+# ---- guest 3Mbps cap (nftables policer on br-guest; no shaping packages) ----
 mkdir -p /etc/nftables.d
 cat > /etc/nftables.d/20-guest-qos.nft <<'QOS'
 chain guest_qos {
     type filter hook forward priority 1; policy accept;
-    oifname "br-guest" limit rate over 610 kbytes/second burst 128 kbytes drop comment "!fw4: guest 5Mbps down"
-    iifname "br-guest" limit rate over 610 kbytes/second burst 128 kbytes drop comment "!fw4: guest 5Mbps up"
+    oifname "br-guest" limit rate over 366 kbytes/second burst 128 kbytes drop comment "!fw4: guest 3Mbps down"
+    iifname "br-guest" limit rate over 366 kbytes/second burst 128 kbytes drop comment "!fw4: guest 3Mbps up"
 }
 QOS
 

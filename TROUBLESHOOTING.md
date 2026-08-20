@@ -75,7 +75,7 @@ nslookup proxmox.koretux.space 172.30.10.17            # AdGuard has local recor
 **Firewall (fw4/nftables)**
 ```sh
 fw4 reload                                              # re-apply; watch for warnings
-nft list ruleset | grep -A4 guest_qos                  # guest 5 Mbps cap present?
+nft list ruleset | grep -A4 guest_qos                  # guest 3 Mbps cap present?
 uci show firewall | grep -E 'zone|forwarding'
 ```
 
@@ -109,6 +109,6 @@ logread | tail -50 ; logread -e mt76 ; dmesg | tail -50
 ## Quick facts
 
 - OpenWrt **23.05.6**, 5 GHz-only. LAN **172.30.10.1/24** (all ports, flat), guest
-  **172.30.20.1/24** (isolated, 5 Mbps). SSIDs **Alfarel-Wifi** (WPA2) +
+  **172.30.20.1/24** (isolated, 3 Mbps). SSIDs **Alfarel-Wifi** (WPA2) +
   **Alfarel-Wifi-Guest** (open, isolated). AdGuard **172.30.10.17**. Root pw
   `@Hammadar4549`. IPv6 disabled. See AGENT-NOTES.md for the rest.
