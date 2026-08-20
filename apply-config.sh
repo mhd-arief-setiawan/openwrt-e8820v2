@@ -116,6 +116,17 @@ chain guest_qos {
 }
 QOS
 
+
+# ---- DNS: AdGuard (minipc) primary, public fallback so internet survives if the
+#      minipc is down. Clients keep using the router (172.30.10.1) as DNS. ----
+uci -q delete dhcp.@dnsmasq[0].server
+uci add_list dhcp.@dnsmasq[0].server='172.30.10.17'   # AdGuard on the minipc
+uci add_list dhcp.@dnsmasq[0].server='1.1.1.1'        # fallback if AdGuard down
+uci add_list dhcp.@dnsmasq[0].server='8.8.8.8'        # fallback
+uci set dhcp.@dnsmasq[0].strictorder='1'              # try in order (AdGuard first)
+uci set dhcp.@dnsmasq[0].noresolv='1'                 # ignore WAN DNS
+uci commit dhcp
+
 # ---- apply ----
 uci commit
 /etc/init.d/network restart
