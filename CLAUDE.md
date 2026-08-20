@@ -28,7 +28,7 @@ file is only the orientation layer.
   - `config.seed` + `.github/workflows/build.yml` define the (5 GHz-only, slim)
     build; `build.sh` does the same build locally.
   - `apply-config.sh` — the canonical live config applied over SSH: flat LAN
-    172.30.10.0/24 (all ports) + an isolated, 5 Mbps-capped guest network + two
+    172.30.10.0/24 (all ports) + an isolated, 3 Mbps-capped guest network + two
     5GHz APs (Alfarel-Wifi, Alfarel-Wifi-Guest). Shapes the running router,
     separate from the firmware image.
   - `files/` — build inputs baked into the image: `mt7621_zte_e8820v2.dts`

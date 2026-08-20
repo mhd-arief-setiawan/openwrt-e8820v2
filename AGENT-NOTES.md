@@ -76,8 +76,9 @@ churn — always re-read it: `Get-NetAdapter -Name Ethernet`.
 
 - **Change a Wi-Fi password:** `uci set wireless.wmain.key='NEW'; uci commit
   wireless; wifi reload`.
-- **Change guest speed:** edit `/etc/nftables.d/20-guest-qos.nft` (3 Mbps ≈ 610
-  kbytes/s; scale linearly) → `fw4 reload`.
+- **Change guest speed:** edit the `limit rate over N kbytes/second` in
+  `/etc/nftables.d/20-guest-qos.nft` — currently **366 ≈ 3 Mbps** (5 Mbps ≈ 610;
+  scale linearly: kbytes/s ≈ Mbps × 122) → `fw4 reload`.
 - **Rebuild everything clean:** factory reset (`firstboot -y; reboot` → 192.168.1.1,
   WARP-safe → reliable window) then run `apply-config.sh` (the whole flat setup).
 - **Rebuild firmware:** `build.sh` locally (Ubuntu/WSL on D:, ~30–45 min) or push
